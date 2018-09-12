@@ -4,13 +4,13 @@ import (
 	"net/http"
 )
 
+// ValueMap sends context as a key-value between the chaining of Middleware.
+type ValueMap map[string]interface{}
+
 // Doable interface for wrapping http handler.
 type Doable interface {
 	Do(w http.ResponseWriter, r *http.Request, v *ValueMap)
 }
-
-// ValueMap sends context as a key-value between the chaining of Middleware.
-type ValueMap map[string]interface{}
 
 // Middleware struct is implements http.Handler.
 type Middleware struct {
@@ -22,7 +22,7 @@ type Middleware struct {
 
 // ServeHTTP is implementation of http.Handler. It creates a new ValueMap if nil,
 // runs the wrapped Doable, and calls the next Middleware if ShouldNext is true
-// and next Middleware is not a nil.
+// and next Middleware is not nil.
 func (m Middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if m.ValueMap == nil {
 		m.ValueMap = new(ValueMap)
