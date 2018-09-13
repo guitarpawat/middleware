@@ -14,9 +14,8 @@ type Doable interface {
 
 // Middleware struct is implements http.Handler.
 type Middleware struct {
-	This       Doable
-	Next       *Middleware
-	ShouldNext bool
+	This Doable
+	Next *Middleware
 	*ValueMap
 }
 
@@ -25,10 +24,11 @@ type Middleware struct {
 // and next Middleware is not nil.
 func (m Middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if m.ValueMap == nil {
-		m.ValueMap = new(ValueMap)
+		m.ValueMap = &(ValueMap{})
 	}
 	m.This.Do(w, r, m.ValueMap)
-	if m.ShouldNext && m.Next != nil {
+	shouldNext, ok := (*m.ValueMap)["next"].(bool)
+	if ok && shouldNext && m.Next != nil {
 		m.Next.ValueMap = m.ValueMap
 		m.Next.ServeHTTP(w, r)
 	}
