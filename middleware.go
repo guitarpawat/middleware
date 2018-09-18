@@ -4,12 +4,17 @@ import (
 	"net/http"
 )
 
-// ValueMap sends context as a key-value between the chaining of Middleware.
-type ValueMap map[string]interface{}
-
 // Doable interface for wrapping http handler.
 type Doable interface {
 	Do(w http.ResponseWriter, r *http.Request, v *ValueMap)
+}
+
+// DoableFunc is a wrapper for Doable interface.
+type DoableFunc func(w http.ResponseWriter, r *http.Request, v *ValueMap)
+
+// Do is a helper method.
+func (f DoableFunc) Do(w http.ResponseWriter, r *http.Request, v *ValueMap) {
+	f(w, r, v)
 }
 
 // Middleware struct is implements http.Handler.
@@ -27,7 +32,7 @@ func (m Middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		m.ValueMap = &(ValueMap{})
 	}
 	m.This.Do(w, r, m.ValueMap)
-	shouldNext, ok := (*m.ValueMap)["next"].(bool)
+	shouldNext, ok := m.Get("next").(bool)
 	if ok && shouldNext && m.Next != nil {
 		m.Next.ValueMap = m.ValueMap
 		m.Next.ServeHTTP(w, r)
@@ -39,17 +44,20 @@ func MakeMiddleware(initial *ValueMap, stuff ...Doable) Middleware {
 	switch len(stuff) {
 	case 0:
 		return Middleware{}
-	case 1:
-		return Middleware{
-			This:     stuff[0],
-			Next:     nil,
-			ValueMap: initial,
-		}
 	default:
-		nextMiddleware := MakeMiddleware(nil, stuff[1:]...)
-		return Middleware{
+		return *NewMiddleware(initial, stuff...)
+	}
+}
+
+// NewMiddleware creates a new Middleware pointer's with chaining Doable stuffs.
+func NewMiddleware(initial *ValueMap, stuff ...Doable) *Middleware {
+	switch len(stuff) {
+	case 0:
+		return nil
+	default:
+		return &Middleware{
 			This:     stuff[0],
-			Next:     &nextMiddleware,
+			Next:     NewMiddleware(nil, stuff[1:]...),
 			ValueMap: initial,
 		}
 	}

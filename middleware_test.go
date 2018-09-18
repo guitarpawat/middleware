@@ -26,14 +26,24 @@ var doNotFound = makeTestDoable(notFound)
 
 var ok = func(w http.ResponseWriter, r *http.Request, v *ValueMap) {
 	w.WriteHeader(http.StatusOK)
-	(*v)["next"] = true
+	v.Set("next", true)
 }
 var doOK = makeTestDoable(ok)
 
 var writeHello = func(w http.ResponseWriter, r *http.Request, v *ValueMap) {
 	w.Write([]byte("hello"))
+	v.Set("next", true)
 }
 var doWriteHello = makeTestDoable(writeHello)
+
+var writeWorld = func(w http.ResponseWriter, r *http.Request, v *ValueMap) {
+	w.Write([]byte("world"))
+}
+var doWriteWorld = makeTestDoable(writeWorld)
+
+func hiHandler(w http.ResponseWriter, r *http.Request, v *ValueMap) {
+	w.Write([]byte("hi"))
+}
 
 func TestMiddleware(t *testing.T) {
 	mw := MakeMiddleware(nil, doNotFound)
@@ -49,7 +59,7 @@ func TestMiddleware(t *testing.T) {
 }
 
 func TestMiddlewareChain(t *testing.T) {
-	mw := MakeMiddleware(nil, doOK, doWriteHello)
+	mw := MakeMiddleware(nil, doOK, doWriteHello, doWriteWorld)
 	mockWriter := httptest.NewRecorder()
 	mw.ServeHTTP(mockWriter, httptest.NewRequest("GET", "/", nil))
 
@@ -62,7 +72,7 @@ func TestMiddlewareChain(t *testing.T) {
 
 	actualByte2, _ := (ioutil.ReadAll(result.Body))
 	actual2 := string(actualByte2)
-	expected2 := "hello"
+	expected2 := "helloworld"
 	if expected2 != actual2 {
 		t.Error("expected body:", expected2, "but get:", actual2)
 	}
@@ -98,5 +108,19 @@ func TestEmptyMiddleware(t *testing.T) {
 	}
 	if mw.ValueMap != nil {
 		t.Error("expected nil ValueMap")
+	}
+}
+
+func TestDoableFuncSpec(t *testing.T) {
+	mw := MakeMiddleware(nil, DoableFunc(hiHandler))
+	mockWriter := httptest.NewRecorder()
+	mw.ServeHTTP(mockWriter, httptest.NewRequest("GET", "/", nil))
+
+	result := mockWriter.Result()
+	actualByte, _ := (ioutil.ReadAll(result.Body))
+	actual := string(actualByte)
+	expected := "hi"
+	if expected != actual {
+		t.Error("expected body:", expected, "but get:", actual)
 	}
 }
